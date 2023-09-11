@@ -20,7 +20,7 @@ public class MondayController {
 
 @GetMapping
     public void getAllProjects(){
-integrationService.getItemsInBoard("1265871158");
+integrationService.saveBoardsToDatabase();
 }
 
 }
