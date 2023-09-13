@@ -5,13 +5,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import org.sample.config.MondayConfig;
 import org.sample.entities.ProjectSpecs;
-import org.sample.model.Items;
-import org.sample.model.Project;
 import org.sample.repository.ProjectRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.util.UriComponentsBuilder;
 
 import java.util.List;
 
@@ -26,17 +23,16 @@ public class IntegrationService {
     @Autowired
     ProjectRepository projectRepository;
 
-
-    public ResponseEntity<String> getBoards(){
+    /**
+    *  This method fetches data from Monday.com API.
+    * 
+    */
+    public ResponseEntity<String> getBoardDetails(String query){
         String apiUrl = "https://api.monday.com/v2";
-        String query = "{ \"query\": \"{ boards { name id } }\" }";
-
-       // String url = apiUrl + endpoint;
-
+         
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + mondayConfig.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
-
 
         HttpEntity<?> requestEntity = new HttpEntity<>(query, headers);
 
@@ -46,30 +42,46 @@ public class IntegrationService {
 
     }
 
-     public void saveBoardsToDatabase() {
-        ResponseEntity<String> responseEntity = getBoards(); // Assuming getBoards method fetches data from Monday.com API
+     public void fetchProjects() {
+
+        String query = "{ \"query\": \"{ boards { name id } }\" }";
+        ResponseEntity<String> responseEntity = getBoardDetails(query);
         if (responseEntity.getStatusCode() == HttpStatus.OK) {
             String responseBody = responseEntity.getBody();
 
-            // Parse the JSON response
             JSONObject responseJson = new JSONObject(responseBody);
             JSONArray boardsArray = responseJson.getJSONObject("data").getJSONArray("boards");
 
-            for (int i = 0; i < boardsArray.length(); i++) {
-                JSONObject boardJson = boardsArray.getJSONObject(i);
-                Long boardId = boardJson.getLong("id");
-                String boardName = boardJson.getString("name");
-
-                // Create a Project entity and save it to the database
-                ProjectSpecs project = new ProjectSpecs();
-                project.setId(boardId);
-                project.setName(boardName);
+            boardsArray.toList().stream()
+            .map(JSONObject.class::cast)
+            .forEach(boardJson -> {
+                ProjectSpecs project = ProjectSpecs.builder()
+                .id(boardJson.getLong("id"))
+                .name(boardJson.getString("name"))
+                .build();
 
                 projectRepository.save(project);
-
-                List<ProjectSpecs> res = projectRepository.findAll();
+            });
+             List<ProjectSpecs> res = projectRepository.findAll();
                 System.out.println(res);
-            }
+        }
+    }
+
+    public void updateProjectName(String newName) {
+
+        String BOARD_ID = "YOUR_BOARD_ID";
+        // Create a RestTemplate instance
+        RestTemplate restTemplate = new RestTemplate();
+
+        // Create the request body with the new project name
+        String requestBody = "{\"query\":\"mutation { change_column_value (board_id: " + BOARD_ID + ", item_id: " + ITEM_ID + ", column_id: \"name\", value: \\\"" + newName + "\\\"\") { id } }\"}";
+        ResponseEntity<String> response = getBoardDetails(requestBody);
+
+        // Handle the response (you can log or process it as needed)
+        if (response.getStatusCode().is2xxSuccessful()) {
+            System.out.println("Project name updated successfully in Monday.com");
+        } else {
+            System.err.println("Failed to update project name in Monday.com. Response: " + response.getBody());
         }
     }
 }

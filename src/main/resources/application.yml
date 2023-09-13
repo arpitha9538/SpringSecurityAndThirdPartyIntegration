@@ -12,5 +12,11 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: true
+
 monday:
   apikey: eyJhbGciOiJIUzI1NiJ9.eyJ0aWQiOjI4MDcyMTc0MSwiYWFpIjoxMSwidWlkIjo0ODU0MjQ0NCwiaWFkIjoiMjAyMy0wOS0wOVQyMjo1Mzo1MC40OTFaIiwicGVyIjoibWU6d3JpdGUiLCJhY3RpZCI6MTg2OTU5ODIsInJnbiI6ImV1YzEifQ.t76dY4IpW4-VcjacMD4yQvUWMdk_bXvFTVI5XpB-22o
+
+rsa:
+  publicKey: classpath:certs/public.pem
+  privateKey: classpath:certs/private.pem
+
