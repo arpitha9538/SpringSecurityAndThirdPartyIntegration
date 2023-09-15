@@ -9,7 +9,6 @@ import org.springframework.context.annotation.ComponentScan;
 
 @EnableConfigurationProperties(RsaKeyProperties.class)
 @SpringBootApplication
-@ComponentScan({"org.sample"})
 public class Scope {
     public static void main(String[] args) {
         SpringApplication.run(Scope.class, args);

@@ -1,5 +1,7 @@
 package org.sample.service;
 
+import org.sample.exception.BoardsNotFoundException;
+import org.sample.exception.ProfileNotFoundException;
 import org.springframework.http.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -11,6 +13,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class IntegrationService {
@@ -24,64 +27,67 @@ public class IntegrationService {
     ProjectRepository projectRepository;
 
     /**
-    *  This method fetches data from Monday.com API.
-    * 
-    */
-    public ResponseEntity<String> getBoardDetails(String query){
+     * This method fetches data from Monday.com API.
+     */
+    public ResponseEntity<String> getBoardDetails(String query) {
         String apiUrl = "https://api.monday.com/v2";
-         
+
         HttpHeaders headers = new HttpHeaders();
         headers.set("Authorization", "Bearer " + mondayConfig.getApiKey());
         headers.setContentType(MediaType.APPLICATION_JSON);
 
         HttpEntity<?> requestEntity = new HttpEntity<>(query, headers);
 
-        ResponseEntity<String> response  = restTemplate.exchange(apiUrl, HttpMethod.POST, requestEntity, String.class);
+        ResponseEntity<String> response = restTemplate.exchange(apiUrl, HttpMethod.POST, requestEntity, String.class);
 
-       return response;
+        return response;
 
     }
 
-     public void fetchProjects() {
+    public List<ProjectSpecs> fetchProjects() throws BoardsNotFoundException {
 
         String query = "{ \"query\": \"{ boards { name id } }\" }";
         ResponseEntity<String> responseEntity = getBoardDetails(query);
-        if (responseEntity.getStatusCode() == HttpStatus.OK) {
+        if (responseEntity.getStatusCode().is2xxSuccessful()) {
             String responseBody = responseEntity.getBody();
 
             JSONObject responseJson = new JSONObject(responseBody);
             JSONArray boardsArray = responseJson.getJSONObject("data").getJSONArray("boards");
 
             boardsArray.toList().stream()
-            .map(JSONObject.class::cast)
-            .forEach(boardJson -> {
-                ProjectSpecs project = ProjectSpecs.builder()
-                .id(boardJson.getLong("id"))
-                .name(boardJson.getString("name"))
-                .build();
+                    .map(item -> {
+                        if (item instanceof JSONObject) {
+                            return (JSONObject) item;
+                        } else if (item instanceof Map<?, ?>) {
+                            return new JSONObject((Map<?, ?>) item);
+                        } else {
+                            throw new IllegalArgumentException("Unsupported type in the array");
+                        }
+                    })
+                    .forEach(boardJson -> {
+                        ProjectSpecs project = ProjectSpecs.builder()
+                                .id(boardJson.getLong("id"))
+                                .name(boardJson.getString("name"))
+                                .build();
 
-                projectRepository.save(project);
-            });
-             List<ProjectSpecs> res = projectRepository.findAll();
-                System.out.println(res);
+                        projectRepository.save(project);
+                    });
+        } else {
+            throw new BoardsNotFoundException("Failed to fetch the boards from the given api key " + responseEntity.getBody());
         }
+        return projectRepository.findAll();
     }
 
-    public void updateProjectName(String newName) {
+    public void createBoardViaAPI(String boardName) throws  ProfileNotFoundException {
 
-        String BOARD_ID = "YOUR_BOARD_ID";
-        // Create a RestTemplate instance
-        RestTemplate restTemplate = new RestTemplate();
+        String requestBody = String.format("{ \"query\": \"mutation { create_board (board_name: \\\"%s\\\", board_kind: public) { id } }\" }", boardName);
 
-        // Create the request body with the new project name
-        String requestBody = "{\"query\":\"mutation { change_column_value (board_id: " + BOARD_ID + ", item_id: " + ITEM_ID + ", column_id: \"name\", value: \\\"" + newName + "\\\"\") { id } }\"}";
         ResponseEntity<String> response = getBoardDetails(requestBody);
 
-        // Handle the response (you can log or process it as needed)
         if (response.getStatusCode().is2xxSuccessful()) {
             System.out.println("Project name updated successfully in Monday.com");
         } else {
-            System.err.println("Failed to update project name in Monday.com. Response: " + response.getBody());
+            throw new ProfileNotFoundException("Failed to create a board from the API " + response.getBody());
         }
     }
 }

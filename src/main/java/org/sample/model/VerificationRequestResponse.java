@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Project {
-    private Long id;
-    private String name;
+public class VerificationRequestResponse {
+    private String challenge;
 }
